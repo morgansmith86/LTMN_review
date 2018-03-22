@@ -3,17 +3,25 @@ title: "Trait by site analysis"
 output: html_notebook
 ---
 
-#Packages
+# Example Header
+```{r}
+print("Morgen Morgan")
+```
+
+### smaller header
+some text
+
+# Packages
 ```{r}
 library(tidyverse)
 ```
 
-#load data
+# load data
 ```{r}
 trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
 ```
 
-#have a look
+# have a look
 ordered boxplots, by ellenberg ph and SITE_HAB
 ```{r}
 ggplot(data = trait.plot.clim.data,

@@ -1,0 +1,65 @@
+---
+title: "Trait by site analysis"
+output: html_notebook
+---
+
+#Packages
+```{r}
+library(tidyverse)
+```
+
+#load data
+```{r}
+trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
+```
+
+#have a look
+ordered boxplots, by ellenberg ph and SITE_HAB
+```{r}
+ggplot(data = trait.plot.clim.data,
+       aes(factor(SITE_HAB))) +
+  geom_boxplot(aes(y = ph.mean.wt,
+                   colour = TARGET_HAB)) +
+  #coord_flip() +
+  theme_classic() +
+  labs(title = "Ellenberg acidity by site/habitat combination",
+       y = "Ellenberg acidity",
+       x = "Site") +
+  theme(axis.text.x  = element_text(angle=90, vjust = -0.01))
+
+```
+
+```{r}
+ggplot(data = filter(trait.plot.clim.data, TARGET_HAB == "Heathland"), 
+       aes(x = SITEABBR, y = ph.mean.wt, colour = SITEABBR))+
+  geom_point(position = "jitter") 
+```
+
+```{r}
+ggplot(data = filter(trait.plot.clim.data, TARGET_HAB == "Broadleaved woodland"), 
+       aes(x = SITEABBR, y = ph.mean.wt, colour = SITEABBR))+
+  geom_point(position = "jitter") 
+```
+
+```{r}
+ggplot(data = filter(trait.plot.clim.data, TARGET_HAB == "Upland blanket bog"), 
+       aes(x = SITEABBR, y = ph.mean.wt, colour = SITEABBR))+
+  geom_point(position = "jitter") 
+```
+
+
+
+```{r}
+ggplot(data = filter(trait.plot.clim.data, TARGET_HAB == "Sand dune"), 
+       aes(x = SITEABBR, y = ph.mean.wt, colour = SITEABBR))+
+  geom_point(position = "jitter") 
+```
+
+
+```{r}
+ggplot(data = filter(trait.plot.clim.data, TARGET_HAB == "Lowland raised bog"), 
+       aes(x = SITEABBR, y = ph.mean.wt, colour = SITEABBR))+
+  geom_point(position = "jitter") 
+```
+
+

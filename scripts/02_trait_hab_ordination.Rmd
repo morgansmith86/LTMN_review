@@ -1,0 +1,293 @@
+---
+title: "02_trait_hab_ordination"
+output: html_notebook
+---
+
+This script tries to visualise the similarity or difference of traits in different habitats.  
+
+
+# Packages
+```{r}
+library(tidyverse)
+library(vegan)
+```
+
+# load data
+```{r}
+trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
+```
+
+
+
+# Prepare the data
+
+
+### Filter
+Just for the time being, we're going to restrict ourselves to one habitat: 
+
+```{r}
+#the filter function is from dplyr, part of the tidyverse
+data <- filter(trait.plot.clim.data, TARGET_HAB %in% c("Upland blanket bog", "Lowland raised bog"))
+names(data)
+```
+### add unique id
+```{r}
+data$UID <- paste(data$SITEABBR, data$PLOT_ID, sep = "_")
+```
+
+
+### make it tidy
+
+```{r}
+data.t <- data %>% 
+  select(SITEABBR, UID, light.mean.wt, moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
+  gather(key = Index, value = ellval, light.mean.wt:fert.mean.wt)
+data.t
+```
+
+
+
+# Visualise
+
+
+### Radar chart
+
+```{r}
+#define radar coordinate system 
+coord_radar <- function (theta = "x", start = 0, direction = 1) 
+{
+  theta <- match.arg(theta, c("x", "y"))
+  r <- if (theta == "x") 
+    "y"
+  else "x"
+  ggproto("CordRadar", CoordPolar, theta = theta, r = r, start = start, 
+          direction = sign(direction),
+          is_linear = function(coord) TRUE)
+}
+```
+
+
+```{r}
+ggplot(data.t, aes(x = Index, y = ellval)) +
+  geom_polygon(aes(group = UID, color = SITEABBR), 
+               fill = NA, size = 0.5, alpha = 1,
+               show.legend = FALSE) +
+  geom_line(aes(group = UID, color = SITEABBR), size = 0.5, alpha = 1) +
+  facet_wrap(~ SITEABBR) +
+  theme(strip.text.x = element_text(size = rel(0.8)),
+        axis.text.x = element_text(size = rel(0.8)),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  xlab("") + ylab("") +
+  guides(color = guide_legend(ncol=2)) +
+  coord_radar()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### extract trait data
+
+we're going to use the weighted trait data.  Lets remind ourselves of the column headings: 
+
+```{r}
+names(data)
+```
+
+
+```{r}
+#the select function is from dplyr, part of the tidyverse
+traits <- select(data, light.mean.wt:fert.mean.wt)
+traits
+```
+
+### extract plot data
+
+```{r}
+plots <- select(data, SITEABBR, SITE_HAB,  SITECODE, PLOT_ID, TARGET_HAB, HAB_ABBR)
+plots
+```
+
+### extract environmental data
+
+```{r}
+env <- select(data, Tmax:mean.sum.precip)
+env
+```
+
+# Ordinate trait data
+
+## Nonmetric Multidimensional Scaling
+
+```{r}
+library(vegan)
+set.seed(201) # this allows us to reproduce the same result in the future
+meta.nmds <- metaMDS(traits) #no transformation of species data is made here prior to bray curtis dissimilarities being calculated. (Bray Curtis is the default in R).
+#str(meta.nmds) # gives stress value for plot
+#stressplot(meta.nmds) # To gain the stress plot for stress values for your MDS
+```
+
+### Merge ordination scores with plot info
+
+```{r}
+plots.nmds <- plots #make a copy of our plot data
+
+plots.nmds$NMDS1<-meta.nmds$points[ ,1] #this puts the NMDS scores for the plots into a new dataframe. you could put them into an existing one if you preferred.
+plots.nmds$NMDS2<-meta.nmds$points[ ,2] 
+```
+
+
+```{r}
+##species data
+stems<-colSums(traits) #global sum of indices for each ellenberg value
+trts <- data.frame(scores(meta.nmds, display = "species")) #dataframe of trait scores for plotting
+trts$species <- row.names(trts) # making a column with trait names
+trts$colsums <- stems #adding the colSums from above
+trts<-trts[!is.na(trts$NMDS1) & !is.na(trts$NMDS2),] #removes NAs
+trts.colmedian <- median(trts$colsums) #create an object that is the median of the abundance of the measured species
+trts.colmean <- mean(trts$colsums) #creates a mean instead if you wish to use
+trts2 <- subset(trts,trts$colsums > trts.colmean) #select the most abundant species. Could discard fewer by going something like - trts$colsums>(trts.colmedian/2) instead
+trts2$species <- factor(trts2$species) #otherwise factor doesn't drop unused levels and it will throw an error
+```
+
+
+```{r}
+ggplot(data = plots.nmds, aes(y = NMDS2, x = NMDS1)) + #sets up the plot
+         geom_point(aes(shape = SITEABBR), size = 3) +
+   
+```
+
+
+
+
+
+### Detrended correspondence analysis (DECORANA)
+
+```{r}
+library(vegan)
+dca.1 <- decorana(traits) #carry out ordination
+dca.1
+plot(dca.1)
+```
+
+### Merge ordination scores with plot info
+
+```{r}
+plots.dca <- plots #make a copy of our plot data
+
+plots.dca$DCA1 <- dca.1$
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+ordiplot(ord = dca.1, display = "sites", type = "n")
+points(dca.1, display = "sites",  = plots$SITEABBR)
+
+#legend("topright", legend = levels(droplevels(plots$SITEABBR)), col = plots$SITEABBR)
+```
+
+
+
+```{r}
+ordiplot(dca.1, type="n", xlim = c(-4,9), ylim = c(-4,5)) #blank plot
+title(main="all LTMN sites ordination on spp freq DCA")
+
+colvec <- rainbow(length(levels(droplevels(plot.mat$TARGET_HAB)))) #colour vector, random colours
+pchvec <- c(1:length(levels(droplevels(plot.mat$TARGET_HAB)))) #symbol vector (gets tricky above 21)
+
+#with(plot.mat, levels(droplevels(plot.mat$TARGET_HAB))) #note 'droplevels' to get rid of unused levels
+
+with(plot.mat, points(dca.1, display = "sites", col = colvec[droplevels(plot.mat$TARGET_HAB)], pch = 20, cex = 0.8))
+
+with(plot.mat, legend("topright", legend = levels(droplevels(plot.mat$TARGET_HAB)), bty = "n",
+                      col = colvec, pch = 20, pt.bg = colvec, cex = 0.6, pt.cex = 1))
+
+
+
+```
+
+
+
+```{r}
+dune.nmds.gg1 <- ggplot(data = dca.1, aes(y = DCA1, x = DCA2)) 
+                        
+                        
+                        + #sets up the plot. brackets around the entire thing to make it draw automatically
+   geom_path(data = df_ell.dune.management, aes(x = NMDS1, y = NMDS2, group = Management, alpha=Management))+ #this is the ellipse, seperate ones by Site. If you didn't change the "alpha" (the shade) then you need to keep the "group 
+   scale_alpha_manual(guide = FALSE,values=c(0.3, 0.5, 0.7, 0.9))+ #sets the shade for the ellipse
+   geom_point(aes(shape = Management), size = 3) + #puts the site points in from the ordination, shape determined by site, size refers to size of point
+  # geom_text(data=trts2, aes(x=trts2$NMDS1, y=trts2$NMDS2, label=species), size = 3.3, hjust=1.1)+ #labelling the species. hjust used to shift them slightly from their points
+      annotate("text",x = NMDS.mean$NMDS1,y = NMDS.mean$NMDS2,label=NMDS.mean$group) + #labels for the centroids - I haven't used this since we have a legend. but you could also dithc the legend, but plot will get v messy
+       geom_segment(data = env.scores.dune,
+                    aes(x = 0, xend = mult*NMDS1, y = 0, yend = mult*NMDS2),
+                    arrow = arrow(length = unit(0.25, "cm")), colour = "grey") + #arrows for envfit.  doubled the length for similarity to the plot() function. NB check ?envfit regarding arrow length if not familiar with lengths
+       geom_text(data = env.scores.dune, #labels the environmental variable arrows * "mult" as for the arrows
+                 aes(x = mult*NMDS1, y = mult*NMDS2, label=env.variables),
+                 size = 5,
+                 hjust = -0.5)+
+   #geom_point(data=trts2, alpha = .6, shape = 4)+ #these are the species points, made lighter and a specific shape
+   scale_shape_manual(values = c(1,8,19,5))+ #sets the shape of the plot points instead of using whatever ggplot2 automatically provides
+   coord_cartesian(xlim = c(-1,1.5))+  ## NB this changes the visible area of the plot only (this is a good thing, apparently). Can also specify ylim. Here in case you want to set xaxis manually.
+   theme_bw())
+```
+
+
+
+```{r}
+
+
+mult <- 2 #multiplier for the arrows and text for envfit below. You can change this and then rerun the plot command.
+(dune.nmds.gg1 <- ggplot(data = dune.NMDS.data, aes(y = NMDS2, x = NMDS1))+ #sets up the plot. brackets around the entire thing to make it draw automatically
+   geom_path(data = df_ell.dune.management, aes(x = NMDS1, y = NMDS2, group = Management, alpha=Management))+ #this is the ellipse, seperate ones by Site. If you didn't change the "alpha" (the shade) then you need to keep the "group 
+   scale_alpha_manual(guide = FALSE,values=c(0.3, 0.5, 0.7, 0.9))+ #sets the shade for the ellipse
+   geom_point(aes(shape = Management), size = 3) + #puts the site points in from the ordination, shape determined by site, size refers to size of point
+  # geom_text(data=trts2, aes(x=trts2$NMDS1, y=trts2$NMDS2, label=species), size = 3.3, hjust=1.1)+ #labelling the species. hjust used to shift them slightly from their points
+      annotate("text",x = NMDS.mean$NMDS1,y = NMDS.mean$NMDS2,label=NMDS.mean$group) + #labels for the centroids - I haven't used this since we have a legend. but you could also dithc the legend, but plot will get v messy
+       geom_segment(data = env.scores.dune,
+                    aes(x = 0, xend = mult*NMDS1, y = 0, yend = mult*NMDS2),
+                    arrow = arrow(length = unit(0.25, "cm")), colour = "grey") + #arrows for envfit.  doubled the length for similarity to the plot() function. NB check ?envfit regarding arrow length if not familiar with lengths
+       geom_text(data = env.scores.dune, #labels the environmental variable arrows * "mult" as for the arrows
+                 aes(x = mult*NMDS1, y = mult*NMDS2, label=env.variables),
+                 size = 5,
+                 hjust = -0.5)+
+   #geom_point(data=trts2, alpha = .6, shape = 4)+ #these are the species points, made lighter and a specific shape
+   scale_shape_manual(values = c(1,8,19,5))+ #sets the shape of the plot points instead of using whatever ggplot2 automatically provides
+   coord_cartesian(xlim = c(-1,1.5))+  ## NB this changes the visible area of the plot only (this is a good thing, apparently). Can also specify ylim. Here in case you want to set xaxis manually.
+   theme_bw())
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

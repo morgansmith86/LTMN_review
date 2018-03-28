@@ -14,7 +14,9 @@ library(vegan)
 
 # load data
 ```{r}
-trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
+#trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
+library(readr)
+trait.plot.data <- read_csv("../data/Trait.means.site.plot.year.csv")
 ```
 
 
@@ -24,8 +26,9 @@ trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
 
 ### add unique id
 ```{r}
-data <- trait.plot.clim.data
-data$UID <- paste(data$SITEABBR, data$PLOT_ID, sep = "_")
+data <- trait.plot.data
+names(data)
+table(duplicated(data$obs.ID))
 ```
 
 
@@ -33,15 +36,18 @@ data$UID <- paste(data$SITEABBR, data$PLOT_ID, sep = "_")
 
 ```{r}
 data.all.t <- data %>% 
-  select(SITEABBR, UID, HAB_ABBR, light.mean.wt, moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
-  gather(key = Index, value = ellval, light.mean.wt:fert.mean.wt)
+  select(SITEABBR, obs.ID, TARGET_HAB, light.mean.wt, moist.mean.wt, ph.mean.wt, fert.mean.wt, comp.mean.wt, stress.mean.wt, rud.mean.wt) %>% 
+  gather(key = Index, value = ellval, light.mean.wt:rud.mean.wt)
 
 #simplify index names
 data.all.t$Index <- recode_factor(data.all.t$Index,
                                   light.mean.wt = "light", 
                                   moist.mean.wt = "moist",
                                   ph.mean.wt = "pH", 
-                                  fert.mean.wt = "fert") 
+                                  fert.mean.wt = "fert", 
+                                  comp.mean.wt = "comp",
+                                  stress.mean.wt = "stress", 
+                                  rud.mean.wt = "rud") 
 
 data.all.t
 ```
@@ -57,9 +63,13 @@ prepare data
 
 ```{r}
 #filter the data
-levels(data.all.t$HAB_ABBR)
+unique(data.all.t$TARGET_HAB)
 #the filter function is from dplyr, part of the tidyverse
-chart.data <- filter(data.all.t, HAB_ABBR %in% c("b.bog", "r.bog", "fen"))
+chart.data <- filter(data.all.t, 
+                     TARGET_HAB %in% c("Upland blanket bog", 
+                                       "Lowland raised bog", 
+                                       "Lowland fen"))
+chart.data
 ```
 
 
@@ -82,7 +92,7 @@ coord_radar <- function (theta = "x", start = 0, direction = 1)
 
 ```{r}
 ggplot(chart.data, aes(x = Index, y = ellval)) +
-  geom_polygon(aes(group = UID, color = SITEABBR), 
+  geom_polygon(aes(group = obs.ID, color = SITEABBR), 
              fill = NA, size = 0.01, alpha = 0.1) +
   theme(strip.text.x = element_text(size = rel(0.8)),
         axis.text.x = element_text(size = rel(0.8)),
@@ -103,14 +113,14 @@ prepare data
 
 ```{r}
 #filter the data
-chart.data <- filter(data.all.t, HAB_ABBR %in% c("b.bog", "r.bog", "fen"))
+chart.data <- filter(data.all.t, TARGET_HAB %in% c("Upland blanket bog", "Lowland raised bog", "Lowland fen"))
 ```
 
 ```{r}
 ggplot(chart.data, aes(x = Index, y = ellval)) +
-  geom_polygon(aes(group = UID, color = SITEABBR), 
+  geom_polygon(aes(group = obs.ID, color = SITEABBR), 
              fill = NA, size = 0.01, alpha = 0.1) +
-  facet_wrap(~HAB_ABBR) +
+  facet_wrap(~TARGET_HAB) +
   theme(strip.text.x = element_text(size = rel(0.8)),
         axis.text.x = element_text(size = rel(0.8)),
         axis.ticks.y = element_blank(),
@@ -130,7 +140,7 @@ chart.data <- data.all.t
 
 ```{r}
 ggplot(chart.data, aes(x = Index, y = ellval)) +
-  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+  geom_polygon(aes(group = obs.ID, color = TARGET_HAB), 
                fill = NA, size = 0.5, alpha = 1) +
   facet_wrap(~ SITEABBR) +
   theme(strip.text.x = element_text(size = rel(0.8)),
@@ -152,7 +162,7 @@ data.all <- trait.plot.clim.data
 ```
 ### add unique id
 ```{r}
-data.all$UID <- paste(data.all$SITEABBR, data.all$PLOT_ID, sep = "_")
+data.all$obs.ID <- paste(data.all$SITEABBR, data.all$PLOT_ID, sep = "_")
 ```
 
 
@@ -160,7 +170,7 @@ data.all$UID <- paste(data.all$SITEABBR, data.all$PLOT_ID, sep = "_")
 
 ```{r}
 data.all.t <- data.all %>% 
-  select(SITEABBR, UID, TARGET_HAB, HAB_ABBR, light.mean.wt, 
+  select(SITEABBR, obs.ID, TARGET_HAB, TARGET_HAB, light.mean.wt, 
          moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
   gather(key = Index, value = ellval, light.mean.wt:fert.mean.wt) 
 data.all.t
@@ -192,12 +202,12 @@ coord_radar <- function (theta = "x", start = 0, direction = 1)
 
 ```{r}
 ggplot(data.all.t, aes(x = Index, y = ellval)) +
-  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+  geom_polygon(aes(group = obs.ID, color = TARGET_HAB), 
                fill = NA, size = 0.5, alpha = 1,
                show.legend = FALSE) +
-  geom_line(aes(group = UID, color = HAB_ABBR), size = 0.5, alpha = 1,
+  geom_line(aes(group = obs.ID, color = TARGET_HAB), size = 0.5, alpha = 1,
             show.legend = FALSE) +
-  facet_wrap(~ HAB_ABBR) +
+  facet_wrap(~ TARGET_HAB) +
   theme(strip.text.x = element_text(size = rel(0.8)),
         axis.text.x = element_text(size = rel(0.8)),
         axis.ticks.y = element_blank(),
@@ -212,14 +222,14 @@ try with log scale
 
 ```{r}
 ggplot(data.all.t, aes(x = Index, y = ellval)) +
-  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+  geom_polygon(aes(group = obs.ID, color = TARGET_HAB), 
                fill = NA, size = 0.5, alpha = 1,
                show.legend = FALSE) +
-  geom_line(aes(group = UID, color = HAB_ABBR), size = 0.5, alpha = 1,
+  geom_line(aes(group = obs.ID, color = TARGET_HAB), size = 0.5, alpha = 1,
             show.legend = FALSE) +
   #scale_y_log10() +
   scale_y_sqrt() +
-  facet_wrap( ~ HAB_ABBR) +
+  facet_wrap( ~ TARGET_HAB) +
   theme(strip.text.x = element_text(size = rel(0.8)),
         axis.text.x = element_text(size = rel(0.8)),
         axis.ticks.y = element_blank(),
@@ -252,7 +262,7 @@ traits
 ### extract plot data
 
 ```{r}
-plots <- select(data, SITEABBR, SITE_HAB,  SITECODE, PLOT_ID, TARGET_HAB, HAB_ABBR)
+plots <- select(data, SITEABBR, SITE_HAB,  SITECODE, PLOT_ID, TARGET_HAB, TARGET_HAB)
 plots
 ```
 

@@ -22,16 +22,9 @@ trait.plot.clim.data <- read_rds("../data/trait.plot.clim.data.rds")
 # Prepare the data
 
 
-### Filter
-Just for the time being, we're going to restrict ourselves to one habitat: 
-
-```{r}
-#the filter function is from dplyr, part of the tidyverse
-data <- filter(trait.plot.clim.data, TARGET_HAB %in% c("Upland blanket bog", "Lowland raised bog"))
-names(data)
-```
 ### add unique id
 ```{r}
+data <- trait.plot.clim.data
 data$UID <- paste(data$SITEABBR, data$PLOT_ID, sep = "_")
 ```
 
@@ -39,10 +32,18 @@ data$UID <- paste(data$SITEABBR, data$PLOT_ID, sep = "_")
 ### make it tidy
 
 ```{r}
-data.t <- data %>% 
-  select(SITEABBR, UID, light.mean.wt, moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
+data.all.t <- data %>% 
+  select(SITEABBR, UID, HAB_ABBR, light.mean.wt, moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
   gather(key = Index, value = ellval, light.mean.wt:fert.mean.wt)
-data.t
+
+#simplify index names
+data.all.t$Index <- recode_factor(data.all.t$Index,
+                                  light.mean.wt = "light", 
+                                  moist.mean.wt = "moist",
+                                  ph.mean.wt = "pH", 
+                                  fert.mean.wt = "fert") 
+
+data.all.t
 ```
 
 
@@ -51,6 +52,18 @@ data.t
 
 
 ### Radar chart
+
+prepare data
+
+```{r}
+#filter the data
+levels(data.all.t$HAB_ABBR)
+#the filter function is from dplyr, part of the tidyverse
+chart.data <- filter(data.all.t, HAB_ABBR %in% c("b.bog", "r.bog", "fen"))
+```
+
+
+
 
 ```{r}
 #define radar coordinate system 
@@ -68,11 +81,57 @@ coord_radar <- function (theta = "x", start = 0, direction = 1)
 
 
 ```{r}
-ggplot(data.t, aes(x = Index, y = ellval)) +
+ggplot(chart.data, aes(x = Index, y = ellval)) +
   geom_polygon(aes(group = UID, color = SITEABBR), 
-               fill = NA, size = 0.5, alpha = 1,
-               show.legend = FALSE) +
-  geom_line(aes(group = UID, color = SITEABBR), size = 0.5, alpha = 1) +
+             fill = NA, size = 0.01, alpha = 0.1) +
+  theme(strip.text.x = element_text(size = rel(0.8)),
+        axis.text.x = element_text(size = rel(0.8)),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  xlab("") + ylab("") +
+  guides(color = guide_legend(ncol=2)) +
+  coord_radar()
+```
+
+
+
+### Radar graph compare a few habitats
+
+
+
+prepare data
+
+```{r}
+#filter the data
+chart.data <- filter(data.all.t, HAB_ABBR %in% c("b.bog", "r.bog", "fen"))
+```
+
+```{r}
+ggplot(chart.data, aes(x = Index, y = ellval)) +
+  geom_polygon(aes(group = UID, color = SITEABBR), 
+             fill = NA, size = 0.01, alpha = 0.1) +
+  facet_wrap(~HAB_ABBR) +
+  theme(strip.text.x = element_text(size = rel(0.8)),
+        axis.text.x = element_text(size = rel(0.8)),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  xlab("") + ylab("") +
+  guides(color = guide_legend(ncol=2)) +
+  coord_radar()
+```
+
+### Radar chart mkultiple
+
+```{r}
+#filter the data
+chart.data <- data.all.t
+```
+
+
+```{r}
+ggplot(chart.data, aes(x = Index, y = ellval)) +
+  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+               fill = NA, size = 0.5, alpha = 1) +
   facet_wrap(~ SITEABBR) +
   theme(strip.text.x = element_text(size = rel(0.8)),
         axis.text.x = element_text(size = rel(0.8)),
@@ -85,11 +144,90 @@ ggplot(data.t, aes(x = Index, y = ellval)) +
 
 
 
+### Radar chart for all data by habitat
+
+```{r}
+#the filter function is from dplyr, part of the tidyverse
+data.all <- trait.plot.clim.data
+```
+### add unique id
+```{r}
+data.all$UID <- paste(data.all$SITEABBR, data.all$PLOT_ID, sep = "_")
+```
+
+
+### make it tidy
+
+```{r}
+data.all.t <- data.all %>% 
+  select(SITEABBR, UID, TARGET_HAB, HAB_ABBR, light.mean.wt, 
+         moist.mean.wt, ph.mean.wt, fert.mean.wt) %>% 
+  gather(key = Index, value = ellval, light.mean.wt:fert.mean.wt) 
+data.all.t
+
+data.all.t$Index <- recode_factor(data.all.t$Index,
+                                  light.mean.wt = "light", 
+                                  moist.mean.wt = "moist",
+                                  ph.mean.wt = "pH", 
+                                  fert.mean.wt = "fert") 
+
+```
 
 
 
+```{r}
+#define radar coordinate system 
+coord_radar <- function (theta = "x", start = 0, direction = 1) 
+{
+  theta <- match.arg(theta, c("x", "y"))
+  r <- if (theta == "x") 
+    "y"
+  else "x"
+  ggproto("CordRadar", CoordPolar, theta = theta, r = r, start = start, 
+          direction = sign(direction),
+          is_linear = function(coord) TRUE)
+}
+```
 
 
+```{r}
+ggplot(data.all.t, aes(x = Index, y = ellval)) +
+  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+               fill = NA, size = 0.5, alpha = 1,
+               show.legend = FALSE) +
+  geom_line(aes(group = UID, color = HAB_ABBR), size = 0.5, alpha = 1,
+            show.legend = FALSE) +
+  facet_wrap(~ HAB_ABBR) +
+  theme(strip.text.x = element_text(size = rel(0.8)),
+        axis.text.x = element_text(size = rel(0.8)),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  xlab("") + ylab("") +
+  #guides(color = guide_legend(ncol=2)) +
+  coord_radar()
+```
+
+
+try with log scale
+
+```{r}
+ggplot(data.all.t, aes(x = Index, y = ellval)) +
+  geom_polygon(aes(group = UID, color = HAB_ABBR), 
+               fill = NA, size = 0.5, alpha = 1,
+               show.legend = FALSE) +
+  geom_line(aes(group = UID, color = HAB_ABBR), size = 0.5, alpha = 1,
+            show.legend = FALSE) +
+  #scale_y_log10() +
+  scale_y_sqrt() +
+  facet_wrap( ~ HAB_ABBR) +
+  theme(strip.text.x = element_text(size = rel(0.8)),
+        axis.text.x = element_text(size = rel(0.8)),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()) +
+  xlab("") + ylab("") +
+  guides(color = guide_legend(ncol=2)) +
+  coord_radar()
+```
 
 
 
